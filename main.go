@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -12,6 +11,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
+
+var db *sql.DB
 
 type Routine struct {
 	ID             int
@@ -25,8 +26,8 @@ type Record struct {
 	RecordedAt time.Time
 }
 
-func getAllRoutines(ctx context.Context, database *sql.DB) []Routine {
-	rows, err := database.QueryContext(ctx, "select id, title, frequency_weeks from routine")
+func getAllRoutines(database *sql.DB) []Routine {
+	rows, err := database.Query("select id, title, frequency_weeks from routine")
 	kcore.Expect(err, "failed to query database")
 	defer func() {
 		kcore.Expect(rows.Close(), "failed to close rows")
@@ -40,8 +41,8 @@ func getAllRoutines(ctx context.Context, database *sql.DB) []Routine {
 	return routines
 }
 
-func getAllRecordsByRoutine(ctx context.Context, database *sql.DB) map[int][]Record {
-	rows, err := database.QueryContext(ctx, "select id, routine_id, recorded_at from record")
+func getAllRecordsByRoutine(database *sql.DB) map[int][]Record {
+	rows, err := database.Query("select id, routine_id, recorded_at from record")
 	kcore.Expect(err, "failed to query database")
 	defer func() {
 		kcore.Expect(rows.Close(), "failed to close rows")
@@ -90,81 +91,75 @@ func getExpectedRoutines(routines []Routine, recordsByRoutine map[int][]Record) 
 	return expectedRoutines
 }
 
-func CmdDisplay(ctx context.Context, db *sql.DB) {
-	routines := getAllRoutines(ctx, db)
-	recordsByRoutine := getAllRecordsByRoutine(ctx, db)
-	routinesByRoom := map[string][]Routine{}
-	for _, routine := range routines {
-		parts := strings.Split(routine.Title, "/")
-		kcore.Assert(len(parts) == 2, "expected 2 parts")
-		room := parts[0]
-		if _, ok := routinesByRoom[room]; !ok {
-			routinesByRoom[room] = []Routine{}
-		}
-		routinesByRoom[room] = append(routinesByRoom[room], routine)
-	}
-	expectedRoutines := getExpectedRoutines(routines, recordsByRoutine)
-	expectedRoutinesByRoom := map[string][]ExpectedRoutine{}
-	for _, routine := range expectedRoutines {
-		parts := strings.Split(routine.Title, "/")
-		kcore.Assert(len(parts) == 2, "expected 2 parts")
-		room := parts[0]
-		if _, ok := expectedRoutinesByRoom[room]; !ok {
-			expectedRoutinesByRoom[room] = []ExpectedRoutine{}
-		}
-		expectedRoutinesByRoom[room] = append(expectedRoutinesByRoom[room], routine)
-	}
-	for room, expectedRoutines := range expectedRoutinesByRoom {
-		fmt.Printf("%s (%d/%d):\n", room, len(routinesByRoom[room])-len(expectedRoutines), len(routinesByRoom[room]))
-		for _, routine := range expectedRoutines {
-			lastRecordedAt := "never" + strings.Repeat(" ", 7)
-			if !routine.LastRecordedAt.IsZero() {
-				lastRecordedAt = routine.LastRecordedAt.Format(time.DateOnly) + "  "
+var displayCmd = &cobra.Command{
+	Use:   "display",
+	Short: "Display routines",
+	Run: func(cmd *cobra.Command, args []string) {
+		routines := getAllRoutines(db)
+		recordsByRoutine := getAllRecordsByRoutine(db)
+		routinesByRoom := map[string][]Routine{}
+		for _, routine := range routines {
+			parts := strings.Split(routine.Title, "/")
+			kcore.Assert(len(parts) == 2, "expected 2 parts")
+			room := parts[0]
+			if _, ok := routinesByRoom[room]; !ok {
+				routinesByRoom[room] = []Routine{}
 			}
-			title := strings.Split(routine.Title, "/")[1]
-			println("  ", lastRecordedAt, title)
+			routinesByRoom[room] = append(routinesByRoom[room], routine)
 		}
-	}
+		expectedRoutines := getExpectedRoutines(routines, recordsByRoutine)
+		expectedRoutinesByRoom := map[string][]ExpectedRoutine{}
+		for _, routine := range expectedRoutines {
+			parts := strings.Split(routine.Title, "/")
+			kcore.Assert(len(parts) == 2, "expected 2 parts")
+			room := parts[0]
+			if _, ok := expectedRoutinesByRoom[room]; !ok {
+				expectedRoutinesByRoom[room] = []ExpectedRoutine{}
+			}
+			expectedRoutinesByRoom[room] = append(expectedRoutinesByRoom[room], routine)
+		}
+		for room, expectedRoutines := range expectedRoutinesByRoom {
+			fmt.Printf("%s (%d/%d):\n", room, len(routinesByRoom[room])-len(expectedRoutines), len(routinesByRoom[room]))
+			for _, routine := range expectedRoutines {
+				lastRecordedAt := "never" + strings.Repeat(" ", 7)
+				if !routine.LastRecordedAt.IsZero() {
+					lastRecordedAt = routine.LastRecordedAt.Format(time.DateOnly) + "  "
+				}
+				title := strings.Split(routine.Title, "/")[1]
+				println("  ", lastRecordedAt, title)
+			}
+		}
+	},
 }
 
-func CmdRecord(ctx context.Context, db *sql.DB, routineTitle string) {
-	row := db.QueryRowContext(ctx, "select id from routine where title = ?", routineTitle)
-	var routineID int
-	err := row.Scan(&routineID)
-	if err == sql.ErrNoRows {
-		log.Fatalf("routine not found: %v", routineTitle)
-	} else {
-		kcore.Expect(err, "failed to query database")
-	}
-	_, err = db.ExecContext(ctx, "insert into record (routine_id, recorded_at) values (?, ?)", routineID, time.Now().Format(time.DateOnly))
-	kcore.Expect(err, "failed to insert record")
+var recordCmd = &cobra.Command{
+	Use:   "record",
+	Short: "Record a routine",
+	Run: func(cmd *cobra.Command, args []string) {
+		routineTitle := cmd.Flag("name").Value.String()
+		row := db.QueryRow("select id from routine where title = ?", routineTitle)
+		var routineID int
+		err := row.Scan(&routineID)
+		if err == sql.ErrNoRows {
+			log.Fatalf("routine not found: %v", routineTitle)
+		} else {
+			kcore.Expect(err, "failed to query database")
+		}
+		_, err = db.Exec("insert into record (routine_id, recorded_at) values (?, ?)", routineID, time.Now().Format(time.DateOnly))
+		kcore.Expect(err, "failed to insert record")
+	},
 }
 
 func main() {
-	database, err := sql.Open("sqlite3", "database.db")
+	var err error
+	db, err = sql.Open("sqlite3", "database.db")
 	kcore.Expect(err, "failed to open database")
 	defer func() {
-		kcore.Expect(database.Close(), "failed to close database")
+		kcore.Expect(db.Close(), "failed to close database")
 	}()
-	ctx := context.Background()
 	var cmd = &cobra.Command{}
-	cmd.AddCommand(&cobra.Command{
-		Use:   "record",
-		Short: "Record a routine",
-		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) != 1 {
-				log.Fatalf("expected 1 argument, got %v", len(args))
-			}
-			routineTitle := args[0]
-			CmdRecord(ctx, database, routineTitle)
-		},
-	})
-	cmd.AddCommand(&cobra.Command{
-		Use:   "display",
-		Short: "Display routines",
-		Run: func(cmd *cobra.Command, args []string) {
-			CmdDisplay(ctx, database)
-		},
-	})
+	recordCmd.Flags().String("name", "", "Name of the routine to record")
+	cmd.AddCommand(recordCmd)
+	cmd.AddCommand(displayCmd)
 	cmd.Execute()
 }
