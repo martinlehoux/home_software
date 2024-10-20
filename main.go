@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -135,7 +137,11 @@ var recordCmd = &cobra.Command{
 	Use:   "record",
 	Short: "Record a routine",
 	Run: func(cmd *cobra.Command, args []string) {
-		routineSearch := cmd.Flag("name").Value.String()
+		if len(args) != 1 {
+			fmt.Println("Usage: record <routine>")
+			os.Exit(1)
+		}
+		routineSearch := args[0]
 		rows, err := db.Query("select id from routine where title like ?", routineSearch)
 		kcore.Expect(err, "failed to query database")
 		routineIDs := []int{}
@@ -145,6 +151,7 @@ var recordCmd = &cobra.Command{
 			routineIDs = append(routineIDs, routineID)
 		}
 		rows.Close()
+		log.Printf("recording %d routines", len(routineIDs))
 		for _, routineID := range routineIDs {
 			_, err = db.Exec("insert into record (routine_id, recorded_at) values (?, ?)", routineID, time.Now().Format(time.DateOnly))
 			kcore.Expect(err, "failed to insert record")
@@ -160,8 +167,11 @@ func main() {
 		kcore.Expect(db.Close(), "failed to close database")
 	}()
 	var cmd = &cobra.Command{}
-	recordCmd.Flags().String("name", "", "Name of the routine to record")
-	cmd.AddCommand(recordCmd)
-	cmd.AddCommand(displayCmd)
+	var cleaningCmd = &cobra.Command{
+		Use: "cleaning",
+	}
+	cleaningCmd.AddCommand(recordCmd)
+	cleaningCmd.AddCommand(displayCmd)
+	cmd.AddCommand(cleaningCmd)
 	cmd.Execute()
 }
