@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -70,7 +69,7 @@ type ExpectedRoutine struct {
 
 func getExpectedRoutines(routines []Routine, recordsByRoutine map[int][]Record) []ExpectedRoutine {
 	now := time.Now()
-	endOfWeek := now.AddDate(0, 0, 7-int(now.Weekday()))
+	endOfWeek := now.AddDate(0, 0, (7-int(now.Weekday()))%7)
 	expectedRoutines := []ExpectedRoutine{}
 	for _, routine := range routines {
 		records, ok := recordsByRoutine[routine.ID]
@@ -136,17 +135,20 @@ var recordCmd = &cobra.Command{
 	Use:   "record",
 	Short: "Record a routine",
 	Run: func(cmd *cobra.Command, args []string) {
-		routineTitle := cmd.Flag("name").Value.String()
-		row := db.QueryRow("select id from routine where title = ?", routineTitle)
-		var routineID int
-		err := row.Scan(&routineID)
-		if err == sql.ErrNoRows {
-			log.Fatalf("routine not found: %v", routineTitle)
-		} else {
-			kcore.Expect(err, "failed to query database")
+		routineSearch := cmd.Flag("name").Value.String()
+		rows, err := db.Query("select id from routine where title like ?", routineSearch)
+		kcore.Expect(err, "failed to query database")
+		routineIDs := []int{}
+		for rows.Next() {
+			var routineID int
+			kcore.Expect(rows.Scan(&routineID), "failed to scan row")
+			routineIDs = append(routineIDs, routineID)
 		}
-		_, err = db.Exec("insert into record (routine_id, recorded_at) values (?, ?)", routineID, time.Now().Format(time.DateOnly))
-		kcore.Expect(err, "failed to insert record")
+		rows.Close()
+		for _, routineID := range routineIDs {
+			_, err = db.Exec("insert into record (routine_id, recorded_at) values (?, ?)", routineID, time.Now().Format(time.DateOnly))
+			kcore.Expect(err, "failed to insert record")
+		}
 	},
 }
 
