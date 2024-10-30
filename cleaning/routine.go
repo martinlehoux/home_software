@@ -2,6 +2,7 @@ package cleaning
 
 import (
 	"database/sql"
+	"slices"
 	"strings"
 	"time"
 
@@ -72,26 +73,17 @@ func (er *ExpectedRoutine) LastRecordedAt() string {
 	return er.lastRecordedAt.Format(time.DateOnly)
 }
 
-func ExpectedRoutines(routines []Routine, recordsByRoutine map[int][]Record) []ExpectedRoutine {
-	endOfWeek := utils.EndOfWeek(time.Now())
-	expectedRoutines := []ExpectedRoutine{}
-	for _, routine := range routines {
-		records, ok := recordsByRoutine[routine.ID]
-		if !ok {
-			expectedRoutines = append(expectedRoutines, ExpectedRoutine{Title: routine.Title})
-		} else {
-			lastRecordedAt := time.Time{}
-			for _, record := range records {
-				if record.RecordedAt.After(lastRecordedAt) {
-					lastRecordedAt = record.RecordedAt
-				}
-			}
-			if endOfWeek.Sub(lastRecordedAt).Hours() > float64(routine.FrequencyWeeks*7*24) {
-				expectedRoutines = append(expectedRoutines, ExpectedRoutine{ID: routine.ID, Title: routine.Title, lastRecordedAt: lastRecordedAt})
-			}
+func IsExpectedRoutine(routine Routine, records []Record) (ExpectedRoutine, bool) {
+	lastRecordedAt := time.Time{}
+	for _, record := range records {
+		if record.RecordedAt.After(lastRecordedAt) {
+			lastRecordedAt = record.RecordedAt
 		}
 	}
-	return expectedRoutines
+	if utils.EndOfWeek(time.Now()).Sub(lastRecordedAt).Hours() > float64(routine.FrequencyWeeks*7*24) {
+		return ExpectedRoutine{ID: routine.ID, Title: routine.Title, lastRecordedAt: lastRecordedAt}, true
+	}
+	return ExpectedRoutine{}, false
 }
 
 func MatchingRoutineIDs(db *sql.DB, routineSearch string) []int {
@@ -107,34 +99,35 @@ func MatchingRoutineIDs(db *sql.DB, routineSearch string) []int {
 	return routineIDs
 }
 
-func RoutinesByRoom(db *sql.DB) map[string][]Routine {
+type Room struct {
+	Name             string
+	ExpectedRoutines []ExpectedRoutine
+	Routines         []Routine
+}
+
+func RoutinesRooms(db *sql.DB) []Room {
+	roomsByName := map[string]Room{}
 	routines := allRoutines(db)
-	routinesByRoom := map[string][]Routine{}
+	recordsByRoutine := allRecordsByRoutine(db)
 	for _, routine := range routines {
 		parts := strings.Split(routine.Title, "/")
 		kcore.Assert(len(parts) == 2, "expected 2 parts")
-		room := parts[0]
-		if _, ok := routinesByRoom[room]; !ok {
-			routinesByRoom[room] = []Routine{}
+		roomName := parts[0]
+		room, ok := roomsByName[roomName]
+		if !ok {
+			room = Room{Name: roomName}
 		}
-		routinesByRoom[room] = append(routinesByRoom[room], routine)
-	}
-	return routinesByRoom
-}
-
-func ExpectedRoutinesByRoom(db *sql.DB) map[string][]ExpectedRoutine {
-	routines := allRoutines(db)
-	recordsByRoutine := allRecordsByRoutine(db)
-	expectedRoutines := ExpectedRoutines(routines, recordsByRoutine)
-	expectedRoutinesByRoom := map[string][]ExpectedRoutine{}
-	for _, routine := range expectedRoutines {
-		parts := strings.Split(routine.Title, "/")
-		kcore.Assert(len(parts) == 2, "expected 2 parts")
-		room := parts[0]
-		if _, ok := expectedRoutinesByRoom[room]; !ok {
-			expectedRoutinesByRoom[room] = []ExpectedRoutine{}
+		room.Routines = append(room.Routines, routine)
+		if expected, ok := IsExpectedRoutine(routine, recordsByRoutine[routine.ID]); ok {
+			room.ExpectedRoutines = append(room.ExpectedRoutines, expected)
 		}
-		expectedRoutinesByRoom[room] = append(expectedRoutinesByRoom[room], routine)
+		roomsByName[roomName] = room
 	}
-	return expectedRoutinesByRoom
+	rooms := []Room{}
+	for _, room := range roomsByName {
+		slices.SortFunc(room.ExpectedRoutines, func(a, b ExpectedRoutine) int { return int(a.lastRecordedAt.Sub(b.lastRecordedAt).Nanoseconds()) })
+		rooms = append(rooms, room)
+	}
+	slices.SortFunc(rooms, func(a, b Room) int { return len(a.ExpectedRoutines) - len(b.ExpectedRoutines) })
+	return rooms
 }

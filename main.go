@@ -26,11 +26,10 @@ var cleaningDisplayCmd = &cobra.Command{
 	Use:   "display",
 	Short: "Display cleaning routines",
 	Run: func(cmd *cobra.Command, args []string) {
-		expectedRoutinesByRoom := cleaning.ExpectedRoutinesByRoom(db)
-		routinesByRoom := cleaning.RoutinesByRoom(db)
-		for room, expectedRoutines := range expectedRoutinesByRoom {
-			fmt.Printf("%s (%d/%d):\n", room, len(routinesByRoom[room])-len(expectedRoutines), len(routinesByRoom[room]))
-			for _, routine := range expectedRoutines {
+		routinesRooms := cleaning.RoutinesRooms(db)
+		for _, room := range routinesRooms {
+			fmt.Printf("%s (%d/%d):\n", room.Name, len(room.Routines)-len(room.ExpectedRoutines), len(room.Routines))
+			for _, routine := range room.ExpectedRoutines {
 				title := strings.Split(routine.Title, "/")[1]
 				println("  ", routine.LastRecordedAt(), title)
 			}
@@ -130,9 +129,8 @@ var serveCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		http.HandleFunc("GET /cleaning/", func(res http.ResponseWriter, req *http.Request) {
-			expectedRoutinesByRoom := cleaning.ExpectedRoutinesByRoom(db)
-			routinesByRoom := cleaning.RoutinesByRoom(db)
-			kcore.RenderPage(ctx, cleaning.CleaningPage(expectedRoutinesByRoom, routinesByRoom), res)
+			routinesRooms := cleaning.RoutinesRooms(db)
+			kcore.RenderPage(ctx, cleaning.CleaningPage(routinesRooms), res)
 		})
 		http.HandleFunc("POST /cleaning/record", func(res http.ResponseWriter, req *http.Request) {
 			if err := req.ParseForm(); err != nil {
