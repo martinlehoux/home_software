@@ -59,6 +59,7 @@ func allRecordsByRoutine(database *sql.DB) map[int][]Record {
 }
 
 type ExpectedRoutine struct {
+	ID             int
 	Title          string
 	lastRecordedAt time.Time
 }
@@ -86,7 +87,7 @@ func ExpectedRoutines(routines []Routine, recordsByRoutine map[int][]Record) []E
 				}
 			}
 			if endOfWeek.Sub(lastRecordedAt).Hours() > float64(routine.FrequencyWeeks*7*24) {
-				expectedRoutines = append(expectedRoutines, ExpectedRoutine{Title: routine.Title, lastRecordedAt: lastRecordedAt})
+				expectedRoutines = append(expectedRoutines, ExpectedRoutine{ID: routine.ID, Title: routine.Title, lastRecordedAt: lastRecordedAt})
 			}
 		}
 	}

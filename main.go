@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -133,6 +134,30 @@ var serveCmd = &cobra.Command{
 			routinesByRoom := cleaning.RoutinesByRoom(db)
 			kcore.RenderPage(ctx, cleaning.CleaningPage(expectedRoutinesByRoom, routinesByRoom), res)
 		})
+		http.HandleFunc("POST /cleaning/record", func(res http.ResponseWriter, req *http.Request) {
+			if err := req.ParseForm(); err != nil {
+				http.Error(res, "Failed to parse form", http.StatusBadRequest)
+				return
+			}
+			routineIDs := []int{}
+			for key, values := range req.Form {
+				// TODO: assert key prefix
+				kcore.Assert(len(values) == 1, "expected 1 value")
+				kcore.Assert(values[0] == "on", "expected 'on'")
+				routineID, err := strconv.Atoi(key)
+				kcore.Expect(err, "failed to convert routine ID to integer")
+				routineIDs = append(routineIDs, routineID)
+			}
+			tx, err := db.BeginTx(context.Background(), &sql.TxOptions{})
+			kcore.Expect(err, "failed to begin transaction")
+			for _, routineID := range routineIDs {
+				_, err = tx.Exec("insert into record (routine_id, recorded_at) values (?, ?)", routineID, time.Now().Format(time.DateOnly))
+				kcore.Expect(err, "failed to insert record")
+			}
+			kcore.Expect(tx.Commit(), "failed to commit transaction")
+			http.Redirect(res, req, "/cleaning/", http.StatusSeeOther)
+		})
+		log.Println("listening on :8080")
 		http.ListenAndServe(":8080", nil)
 		// TODO: graceful shutdown
 	},

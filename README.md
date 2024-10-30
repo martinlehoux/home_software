@@ -8,6 +8,9 @@
 - interactive filter of chores to record
 - simple web interface
 - sqlx seems good abstraction here
+- keep room order fixed
+- use tailwind
+- possibilité de cocher tous les aspirateurs
 
 - Recipes
   - Title

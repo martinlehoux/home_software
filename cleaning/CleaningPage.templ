@@ -1,23 +1,38 @@
 package cleaning
 
 import (
-"fmt"
-"strings"
+	"fmt"
+	"strings"
 )
 
 templ CleaningPage(expectedRoutinesByRoom map[string][]ExpectedRoutine, routinesByRoom map[string][]Routine) {
-<main>
-  <h1>Cleaning Page</h1>
-  for room, expectedRoutines := range expectedRoutinesByRoom {
-  <div>
-    <p><em>{ fmt.Sprintf("%s (%d/%d):", room, len(routinesByRoom[room])-len(expectedRoutines),
-        len(routinesByRoom[room]))
-        }</em></p>
-    for _, routine := range expectedRoutines {
-    <p>&emsp;{ routine.LastRecordedAt() }&emsp;{ strings.Split(routine.Title, "/")[1] }</p>
-    }
-  </div>
-  }
-  <p>This is the cleaning page.</p>
-</main>
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>Home Cleaning</title>
+		</head>
+		<body>
+			<main>
+				<h1>Cleaning Page</h1>
+				<form style="display: grid; grid-template-columns: 2em max-content auto; column-gap: 1em;" action="/cleaning/record" method="POST">
+					<div style="grid-column: span 3 / span 3;">
+						<button type="submit">Submit</button>
+					</div>
+					for room, expectedRoutines := range expectedRoutinesByRoom {
+						<p style="font-weight: bold; grid-column: span 3 / span 3;">
+							{ fmt.Sprintf("%s (%d/%d):", room, len(routinesByRoom[room])-len(expectedRoutines),
+        len(routinesByRoom[room])) }
+						</p>
+						for _, routine := range expectedRoutines {
+							<div><input name={ fmt.Sprintf("%d", routine.ID) } type="checkbox"/></div>
+							<div>{ routine.LastRecordedAt() }</div>
+							<div>{ strings.Split(routine.Title, "/")[1] }</div>
+						}
+					}
+				</form>
+			</main>
+		</body>
+	</html>
 }
