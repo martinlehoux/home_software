@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -24,38 +25,13 @@ var cleaningDisplayCmd = &cobra.Command{
 	Use:   "display",
 	Short: "Display cleaning routines",
 	Run: func(cmd *cobra.Command, args []string) {
-		routines := cleaning.AllRoutines(db)
-		recordsByRoutine := cleaning.AllRecordsByRoutine(db)
-		routinesByRoom := map[string][]cleaning.Routine{}
-		for _, routine := range routines {
-			parts := strings.Split(routine.Title, "/")
-			kcore.Assert(len(parts) == 2, "expected 2 parts")
-			room := parts[0]
-			if _, ok := routinesByRoom[room]; !ok {
-				routinesByRoom[room] = []cleaning.Routine{}
-			}
-			routinesByRoom[room] = append(routinesByRoom[room], routine)
-		}
-		expectedRoutines := cleaning.ExpectedRoutines(routines, recordsByRoutine)
-		expectedRoutinesByRoom := map[string][]cleaning.ExpectedRoutine{}
-		for _, routine := range expectedRoutines {
-			parts := strings.Split(routine.Title, "/")
-			kcore.Assert(len(parts) == 2, "expected 2 parts")
-			room := parts[0]
-			if _, ok := expectedRoutinesByRoom[room]; !ok {
-				expectedRoutinesByRoom[room] = []cleaning.ExpectedRoutine{}
-			}
-			expectedRoutinesByRoom[room] = append(expectedRoutinesByRoom[room], routine)
-		}
+		expectedRoutinesByRoom := cleaning.ExpectedRoutinesByRoom(db)
+		routinesByRoom := cleaning.RoutinesByRoom(db)
 		for room, expectedRoutines := range expectedRoutinesByRoom {
 			fmt.Printf("%s (%d/%d):\n", room, len(routinesByRoom[room])-len(expectedRoutines), len(routinesByRoom[room]))
 			for _, routine := range expectedRoutines {
-				lastRecordedAt := "never" + strings.Repeat(" ", 7)
-				if !routine.LastRecordedAt.IsZero() {
-					lastRecordedAt = routine.LastRecordedAt.Format(time.DateOnly) + "  "
-				}
 				title := strings.Split(routine.Title, "/")[1]
-				println("  ", lastRecordedAt, title)
+				println("  ", routine.LastRecordedAt(), title)
 			}
 		}
 	},
@@ -148,6 +124,20 @@ var recipesSuggestCmd = &cobra.Command{
 	},
 }
 
+var serveCmd = &cobra.Command{
+	Use: "server",
+	Run: func(cmd *cobra.Command, args []string) {
+		ctx := context.Background()
+		http.HandleFunc("GET /cleaning/", func(res http.ResponseWriter, req *http.Request) {
+			expectedRoutinesByRoom := cleaning.ExpectedRoutinesByRoom(db)
+			routinesByRoom := cleaning.RoutinesByRoom(db)
+			kcore.RenderPage(ctx, cleaning.CleaningPage(expectedRoutinesByRoom, routinesByRoom), res)
+		})
+		http.ListenAndServe(":8080", nil)
+		// TODO: graceful shutdown
+	},
+}
+
 func main() {
 	var err error
 	db, err = sql.Open("sqlite3", "database.db")
@@ -168,5 +158,6 @@ func main() {
 	recipesCmd.AddCommand(recipesRegisterCmd)
 	recipesCmd.AddCommand(recipesSuggestCmd)
 	cmd.AddCommand(recipesCmd)
+	cmd.AddCommand(serveCmd)
 	cmd.Execute()
 }

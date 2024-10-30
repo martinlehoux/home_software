@@ -2,6 +2,7 @@ package cleaning
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 
 	"github.com/martinlehoux/home_software/utils"
@@ -20,7 +21,7 @@ type Record struct {
 	RecordedAt time.Time
 }
 
-func AllRoutines(database *sql.DB) []Routine {
+func allRoutines(database *sql.DB) []Routine {
 	rows, err := database.Query("select id, title, frequency_weeks from routine")
 	kcore.Expect(err, "failed to query database")
 	defer func() {
@@ -35,7 +36,7 @@ func AllRoutines(database *sql.DB) []Routine {
 	return routines
 }
 
-func AllRecordsByRoutine(database *sql.DB) map[int][]Record {
+func allRecordsByRoutine(database *sql.DB) map[int][]Record {
 	rows, err := database.Query("select id, routine_id, recorded_at from record")
 	kcore.Expect(err, "failed to query database")
 	defer func() {
@@ -59,7 +60,15 @@ func AllRecordsByRoutine(database *sql.DB) map[int][]Record {
 
 type ExpectedRoutine struct {
 	Title          string
-	LastRecordedAt time.Time
+	lastRecordedAt time.Time
+}
+
+func (er *ExpectedRoutine) LastRecordedAt() string {
+	if er.lastRecordedAt.IsZero() {
+		return "never"
+	}
+
+	return er.lastRecordedAt.Format(time.DateOnly)
 }
 
 func ExpectedRoutines(routines []Routine, recordsByRoutine map[int][]Record) []ExpectedRoutine {
@@ -77,7 +86,7 @@ func ExpectedRoutines(routines []Routine, recordsByRoutine map[int][]Record) []E
 				}
 			}
 			if endOfWeek.Sub(lastRecordedAt).Hours() > float64(routine.FrequencyWeeks*7*24) {
-				expectedRoutines = append(expectedRoutines, ExpectedRoutine{Title: routine.Title, LastRecordedAt: lastRecordedAt})
+				expectedRoutines = append(expectedRoutines, ExpectedRoutine{Title: routine.Title, lastRecordedAt: lastRecordedAt})
 			}
 		}
 	}
@@ -95,4 +104,36 @@ func MatchingRoutineIDs(db *sql.DB, routineSearch string) []int {
 		routineIDs = append(routineIDs, routineID)
 	}
 	return routineIDs
+}
+
+func RoutinesByRoom(db *sql.DB) map[string][]Routine {
+	routines := allRoutines(db)
+	routinesByRoom := map[string][]Routine{}
+	for _, routine := range routines {
+		parts := strings.Split(routine.Title, "/")
+		kcore.Assert(len(parts) == 2, "expected 2 parts")
+		room := parts[0]
+		if _, ok := routinesByRoom[room]; !ok {
+			routinesByRoom[room] = []Routine{}
+		}
+		routinesByRoom[room] = append(routinesByRoom[room], routine)
+	}
+	return routinesByRoom
+}
+
+func ExpectedRoutinesByRoom(db *sql.DB) map[string][]ExpectedRoutine {
+	routines := allRoutines(db)
+	recordsByRoutine := allRecordsByRoutine(db)
+	expectedRoutines := ExpectedRoutines(routines, recordsByRoutine)
+	expectedRoutinesByRoom := map[string][]ExpectedRoutine{}
+	for _, routine := range expectedRoutines {
+		parts := strings.Split(routine.Title, "/")
+		kcore.Assert(len(parts) == 2, "expected 2 parts")
+		room := parts[0]
+		if _, ok := expectedRoutinesByRoom[room]; !ok {
+			expectedRoutinesByRoom[room] = []ExpectedRoutine{}
+		}
+		expectedRoutinesByRoom[room] = append(expectedRoutinesByRoom[room], routine)
+	}
+	return expectedRoutinesByRoom
 }

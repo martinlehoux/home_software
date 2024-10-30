@@ -1,3 +1,8 @@
+## Run
+
+- `templ generate`
+- `go run main.go server`
+
 ## TODO
 
 - interactive filter of chores to record
@@ -11,6 +16,7 @@
   - Week (Monday date)
   - Recipe ID
 - Cooking
+
   - Recipe ID
   - Date
 
