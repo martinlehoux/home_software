@@ -22,8 +22,7 @@ templ CleaningPage(routinesRooms []Room) {
 					</div>
 					for _, room := range routinesRooms {
 						<p style="font-weight: bold; grid-column: span 3 / span 3;">
-							{ fmt.Sprintf("%s (%d/%d)", room.Name, len(room.Routines)-len(room.ExpectedRoutines),
-        len(room.Routines)) }
+							{ room.Title() }
 						</p>
 						for _, routine := range room.ExpectedRoutines {
 							<div><input name={ fmt.Sprintf("%d", routine.ID) } type="checkbox"/></div>

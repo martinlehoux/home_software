@@ -2,6 +2,7 @@ package cleaning
 
 import (
 	"database/sql"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -103,6 +104,18 @@ type Room struct {
 	Name             string
 	ExpectedRoutines []ExpectedRoutine
 	Routines         []Routine
+}
+
+func (room Room) Title() string {
+	doneCount := len(room.Routines) - len(room.ExpectedRoutines)
+	title := fmt.Sprintf("%s (%d/%d)", room.Name, doneCount, len(room.Routines))
+	if doneCount == len(room.Routines) {
+		title = "✅ " + title
+	} else {
+		title = "⏳ " + title
+	}
+
+	return title
 }
 
 func RoutinesRooms(db *sql.DB) []Room {
