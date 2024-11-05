@@ -18,7 +18,7 @@ templ CleaningPage(routinesRooms []Room) {
 				<h1>Ménage</h1>
 				<form style="display: grid; grid-template-columns: 2em max-content auto; column-gap: 1em;" action="/cleaning/record" method="POST">
 					<div style="grid-column: span 3 / span 3;">
-						<button type="submit">Enregistrer</button>
+						<button type="submit" style="padding: 4px 8px; font-size: large; background-color: white; border: 2px solid darkgrey; border-radius: 4px;">Enregistrer</button>
 					</div>
 					for _, room := range routinesRooms {
 						<p style="font-weight: bold; grid-column: span 3 / span 3;">
