@@ -5,24 +5,28 @@
 
 ## TODO
 
-- interactive filter of chores to record
-- simple web interface
 - sqlx seems good abstraction here
 - use tailwind
-- possibilité de cocher tous les aspirateurs
 
-- Recipes
-  - Title
-  - Notes
-- Week suggestions
-  - Week (Monday date)
-  - Recipe ID
-- Cooking
+- **Cleaning**
 
-  - Recipe ID
-  - Date
+  - interactive filter of chores to record
+  - possibilité de cocher tous les aspirateurs
+  - score, score over time
+  - navheader
 
-- Ideas
+- **Recipes**
+
+  - simple web interface
+  - Recipes
+    - Title
+    - Notes
+  - Week suggestions
+    - Week (Monday date)
+    - Recipe ID
+  - Cooking
+    - Recipe ID
+    - Date
   - Random
   - Last made
   - Last suggested
