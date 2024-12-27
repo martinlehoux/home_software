@@ -4,14 +4,18 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/amacneil/dbmate/v2/pkg/dbmate"
+	_ "github.com/amacneil/dbmate/v2/pkg/driver/sqlite"
 	"github.com/martinlehoux/home_software/cleaning"
 	"github.com/martinlehoux/home_software/utils"
 	"github.com/martinlehoux/kagamigo/kcore"
@@ -161,6 +165,23 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+//go:embed migrations/*.sql
+var migrationsFs embed.FS
+
+var migrateCmd = &cobra.Command{
+	Use: "migrate",
+	Run: func(cmd *cobra.Command, args []string) {
+		u, err := url.Parse("sqlite:database.db")
+		kcore.Expect(err, "failed to parse database URL")
+		migrator := dbmate.New(u)
+		migrator.FS = migrationsFs
+		migrator.MigrationsDir = []string{"migrations"}
+		migrator.SchemaFile = "schema.sql"
+		log.Println("migrating database")
+		kcore.Expect(migrator.Migrate(), "failed to migrate")
+	},
+}
+
 func main() {
 	var err error
 	db, err = sql.Open("sqlite3", "database.db")
@@ -182,5 +203,6 @@ func main() {
 	recipesCmd.AddCommand(recipesSuggestCmd)
 	cmd.AddCommand(recipesCmd)
 	cmd.AddCommand(serveCmd)
+	cmd.AddCommand(migrateCmd)
 	cmd.Execute()
 }
