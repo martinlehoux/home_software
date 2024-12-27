@@ -24,10 +24,18 @@ templ CleaningPage(routinesRooms []Room) {
 						<p style="font-weight: bold; grid-column: span 3 / span 3;">
 							{ room.Title() }
 						</p>
-						for _, routine := range room.ExpectedRoutines {
+						for _, routine := range room.Routines {
 							<div><input name={ fmt.Sprintf("%d", routine.ID) } type="checkbox"/></div>
-							<div>{ routine.LastRecordedAt() }</div>
-							<div>{ strings.Split(routine.Title, "/")[1] }</div>
+							<div
+								if !routine.DueThisWeek() {
+									style="text-decoration: line-through; color: grey;"
+								}
+							>{ routine.LastRecordedAtString() }</div>
+							<div
+								if !routine.DueThisWeek() {
+									style="text-decoration: line-through; color: grey;"
+								}
+							>{ strings.Split(routine.Title, "/")[1] }</div>
 						}
 					}
 				</form>

@@ -14,6 +14,9 @@
   - possibilité de cocher tous les aspirateurs
   - score, score over time
   - navheader
+  - global score
+  - pinned submit button
+  - lowest % complete on top
 
 - **Recipes**
 

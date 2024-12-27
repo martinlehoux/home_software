@@ -28,10 +28,10 @@ var cleaningDisplayCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		routinesRooms := cleaning.RoutinesRooms(db)
 		for _, room := range routinesRooms {
-			fmt.Printf("%s (%d/%d):\n", room.Name, len(room.Routines)-len(room.ExpectedRoutines), len(room.Routines))
-			for _, routine := range room.ExpectedRoutines {
+			fmt.Printf("%s (%d/%d):\n", room.Name, room.DoneCount(), len(room.Routines))
+			for _, routine := range room.Routines {
 				title := strings.Split(routine.Title, "/")[1]
-				println("  ", routine.LastRecordedAt(), title)
+				println("  ", routine.LastRecordedAtString(), title)
 			}
 		}
 	},
