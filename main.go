@@ -159,8 +159,9 @@ var serveCmd = &cobra.Command{
 			kcore.Expect(tx.Commit(), "failed to commit transaction")
 			http.Redirect(res, req, "/cleaning/", http.StatusSeeOther)
 		})
-		log.Println("listening on :8080")
-		http.ListenAndServe(":8080", nil)
+		log.Println("listening on :8081")
+		err := http.ListenAndServe(":8081", nil)
+		kcore.Expect(err, "failed to listen and serve")
 		// TODO: graceful shutdown
 	},
 }
