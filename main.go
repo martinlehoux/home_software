@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var databaseName string
 var db *sql.DB
 
 var cleaningDisplayCmd = &cobra.Command{
@@ -128,7 +129,8 @@ var recipesSuggestCmd = &cobra.Command{
 	},
 }
 
-var serveCmd = &cobra.Command{
+var serverPort string
+var serverCmd = &cobra.Command{
 	Use: "server",
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
@@ -159,8 +161,8 @@ var serveCmd = &cobra.Command{
 			kcore.Expect(tx.Commit(), "failed to commit transaction")
 			http.Redirect(res, req, "/cleaning/", http.StatusSeeOther)
 		})
-		log.Println("listening on :8081")
-		err := http.ListenAndServe(":8081", nil)
+		log.Printf("listening on http://localhost:%s", serverPort)
+		err := http.ListenAndServe(fmt.Sprintf(":%s", serverPort), nil)
 		kcore.Expect(err, "failed to listen and serve")
 		// TODO: graceful shutdown
 	},
@@ -172,9 +174,7 @@ var migrationsFs embed.FS
 var migrateCmd = &cobra.Command{
 	Use: "migrate",
 	Run: func(cmd *cobra.Command, args []string) {
-		u, err := url.Parse("sqlite:database.db")
-		kcore.Expect(err, "failed to parse database URL")
-		migrator := dbmate.New(u)
+		migrator := dbmate.New(&url.URL{Scheme: "sqlite", Opaque: databaseName})
 		migrator.FS = migrationsFs
 		migrator.MigrationsDir = []string{"migrations"}
 		migrator.SchemaFile = "schema.sql"
@@ -185,12 +185,15 @@ var migrateCmd = &cobra.Command{
 
 func main() {
 	var err error
-	db, err = sql.Open("sqlite3", "database.db")
-	kcore.Expect(err, "failed to open database")
+	cmd := &cobra.Command{
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			db, err = sql.Open("sqlite3", databaseName)
+			kcore.Expect(err, "failed to open database")
+		},
+	}
 	defer func() {
 		kcore.Expect(db.Close(), "failed to close database")
 	}()
-	cmd := &cobra.Command{}
 	cleaningCmd := &cobra.Command{
 		Use: "cleaning",
 	}
@@ -203,7 +206,12 @@ func main() {
 	recipesCmd.AddCommand(recipesRegisterCmd)
 	recipesCmd.AddCommand(recipesSuggestCmd)
 	cmd.AddCommand(recipesCmd)
-	cmd.AddCommand(serveCmd)
+	serverCmd.Flags().StringVar(&serverPort, "port", "8081", "port to listen on")
+	serverCmd.MarkFlagRequired("port")
+	cmd.AddCommand(serverCmd)
 	cmd.AddCommand(migrateCmd)
+
+	cmd.PersistentFlags().StringVar(&databaseName, "database", "database.db", "database name")
+	cmd.MarkPersistentFlagRequired("database")
 	cmd.Execute()
 }
