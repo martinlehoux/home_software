@@ -141,6 +141,14 @@ func routineCmp(a, b Routine) int {
 	return int(a.LastRecordedAt().Sub(b.LastRecordedAt()).Nanoseconds())
 }
 
+func roomCmp(a, b Room) int {
+	if a.Name < b.Name {
+		return -1
+	} else {
+		return 1
+	}
+}
+
 func RoutinesRooms(db *sql.DB) []Room {
 	roomsByName := map[string]Room{}
 	routines := allRoutines(db)
@@ -160,6 +168,6 @@ func RoutinesRooms(db *sql.DB) []Room {
 		slices.SortFunc(room.Routines, routineCmp)
 		rooms = append(rooms, room)
 	}
-	slices.SortFunc(rooms, func(a, b Room) int { return a.DueCount() - b.DueCount() })
+	slices.SortFunc(rooms, roomCmp)
 	return rooms
 }

@@ -5,6 +5,16 @@ import (
 	"strings"
 )
 
+func routineStyle(routine Routine) templ.Attributes {
+	style := "display: flex; gap: 1em;"
+	if !routine.DueThisWeek() {
+		style += "text-decoration: line-through; color: grey;"
+	}
+	return templ.Attributes{
+		"style": style,
+	}
+}
+
 templ CleaningPage(routinesRooms []Room) {
 	<!DOCTYPE html>
 	<html lang="en">
@@ -16,27 +26,23 @@ templ CleaningPage(routinesRooms []Room) {
 		<body>
 			<main>
 				<h1>Ménage</h1>
-				<form style="display: grid; grid-template-columns: 2em max-content auto; column-gap: 1em;" action="/cleaning/record" method="POST">
-					<div style="grid-column: span 3 / span 3; position: sticky; top: 0px;">
+				<form style="display: flex; flex-direction: column; gap: 1em;" action="/cleaning/record" method="POST">
+					<div style="position: sticky; top: 0px;">
 						<button type="submit" style="padding: 4px 8px; font-size: large; background-color: white; border: 2px solid darkgrey; border-radius: 4px; cursor: pointer;">Enregistrer</button>
 					</div>
 					for _, room := range routinesRooms {
-						<p style="font-weight: bold; grid-column: span 3 / span 3;">
-							{ room.Title() }
-						</p>
-						for _, routine := range room.Routines {
-							<div><input name={ fmt.Sprintf("%d", routine.ID) } type="checkbox"/></div>
-							<div
-								if !routine.DueThisWeek() {
-									style="text-decoration: line-through; color: grey;"
-								}
-							>{ routine.LastRecordedAtString() }</div>
-							<div
-								if !routine.DueThisWeek() {
-									style="text-decoration: line-through; color: grey;"
-								}
-							>{ strings.Split(routine.Title, "/")[1] }</div>
-						}
+						<details open?={ room.DoneCount() < len(room.Routines) } style="display: flex; flex-direction: column;">
+							<summary style="font-weight: bold;">
+								{ room.Title() }
+							</summary>
+							for _, routine := range room.Routines {
+								<div { routineStyle(routine)... }>
+									<div style="width: 2em;"><input name={ fmt.Sprintf("%d", routine.ID) } type="checkbox"/></div>
+									<div style="width: 10em;">{ routine.LastRecordedAtString() }</div>
+									<div>{ strings.Split(routine.Title, "/")[1] }</div>
+								</div>
+							}
+						</details>
 					}
 				</form>
 			</main>
