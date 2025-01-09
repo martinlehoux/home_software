@@ -12,6 +12,7 @@ scp home_software admin@framboise.local:
 # https://askubuntu.com/questions/8653/how-to-keep-processes-running-after-ending-ssh-session
 tmux attach-session -t home_software
 home_software server --port=8081 --database=home_software.db
+# Ctrl + B > D
 ```
 
 ## TODO

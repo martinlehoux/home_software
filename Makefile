@@ -28,3 +28,6 @@ home_software: **/*.go
 		CC="zig cc -target aarch64-linux-gnu -isystem /usr/include -L/usr/lib/aarch64-linux-gnu" \
 		CXX="zig c++ -target aarch64-linux-gnu -isystem /usr/include -L/usr/lib/aarch64-linux-gnu" \
 		CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build
+
+backup:
+	scp admin@framboise.local:home_software.db database.db
