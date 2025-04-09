@@ -1,7 +1,7 @@
 ## Run
 
 - `templ generate`
-- `go run main.go server`
+- `go run main.go server --port=8081 --database=home_software.db`
 
 ## Production
 
@@ -9,10 +9,7 @@
 make home_software
 scp home_software admin@framboise.local:
 
-# https://askubuntu.com/questions/8653/how-to-keep-processes-running-after-ending-ssh-session
-tmux attach-session -t home_software
-home_software server --port=8081 --database=home_software.db
-# Ctrl + B > D
+systemd-run --user /home/admin/home_software server --database=home_software.db --port=8081
 ```
 
 ## TODO
@@ -29,6 +26,7 @@ home_software server --port=8081 --database=home_software.db
   - navheader
   - global score
   - choose any date to submit
+  - Add new chore
 
 - **Recipes**
 
