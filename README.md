@@ -24,7 +24,7 @@ systemd-run --user /home/admin/home_software server --database=home_software.db 
   - possibilité de cocher tous les aspirateurs
   - score, score over time
   - navheader
-  - global score
+  - global score, week over week
   - choose any date to submit
   - Add new chore
 
